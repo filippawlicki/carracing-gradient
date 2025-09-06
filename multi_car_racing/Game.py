@@ -3,6 +3,7 @@ from typing import Optional
 import numpy as np
 import pygame
 import gymnasium as gym
+
 from .controllers.HumanController import HumanController
 from .controllers.IdleController import IdleController
 from .views.TrackMap import TrackMap
@@ -15,6 +16,9 @@ from .GameConfig import GameConfig
 class Game:
     def __init__(self, config: GameConfig):
         self.config = config
+
+        self.seed = self.config.seed if self.config.seed is not None else int(np.random.randint(0, 10_000))
+
         self.clock = pygame.time.Clock()
         self.screen: Optional[pygame.Surface] = None
 
@@ -51,14 +55,15 @@ class Game:
         return gym.make("CarRacing-v3", render_mode="rgb_array", max_episode_steps=10_000)
 
     def init_envs(self) -> None:
-        seed = self.config.seed if self.config.seed is not None else int(np.random.randint(0, 10_000))
-
         base_env = self._make_env()
+        base_env.reset(seed=self.seed)
 
+        self.track_map.build_from_env(base_env)
 
         for i in range(self.config.number_of_cars):
             env = self._make_env()
-            env.reset(seed=seed)
+            env.reset(seed=self.seed)
+
             if i == 0:
                 controller = HumanController()
                 role = "GRACZ"
@@ -67,14 +72,11 @@ class Game:
                 role = "AI"
             car = EnvCar(env=env, controller=controller, role=role)
             self.cars.append(car)
-        self.track_map.build_from_env(base_env)
 
     def reset_both(self) -> None:
-        seed = self.config.seed if self.config.seed is not None else int(np.random.randint(0, 10_000))
-
         for car in self.cars:
             assert car
-            car.reset(seed)
+            car.reset(self.seed)
             if car is self.cars[-1]:
                 self.track_map.build_from_env(car.env)
 
