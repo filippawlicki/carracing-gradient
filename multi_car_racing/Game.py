@@ -6,6 +6,7 @@ import gymnasium as gym
 
 from .controllers.HumanController import HumanController
 from .controllers.IdleController import IdleController
+from .controllers.AgentController import AgentController
 from .views.TrackMap import TrackMap
 from .views.MiniMap import MiniMap
 from .envs.EnvCar import EnvCar
@@ -16,6 +17,9 @@ from .GameConfig import GameConfig
 class Game:
     def __init__(self, config: GameConfig):
         self.config = config
+
+        if not config.render and self.config.human:
+            raise ValueError("Human cannot be applied while rendering is off")
 
         self.seed = self.config.seed if self.config.seed is not None else int(np.random.randint(0, 10_000))
 
@@ -33,6 +37,8 @@ class Game:
         self.font_small: Optional[pygame.font.Font] = None
 
     def init_pygame(self) -> None:
+        if not self.config.render:
+            return
         pygame.init()
         pygame.font.init()
         self.screen = pygame.display.set_mode((self.config.width, self.config.height))
@@ -52,7 +58,8 @@ class Game:
             self.viewports.append(vp)
 
     def _make_env(self) -> gym.Env:
-        return gym.make("CarRacing-v3", render_mode="rgb_array", max_episode_steps=10_000)
+        render_mode = None if not self.config.render else "rgb_array"
+        return gym.make("CarRacing-v3", render_mode=render_mode, max_episode_steps=1500)
 
     def init_envs(self) -> None:
         base_env = self._make_env()
@@ -64,12 +71,19 @@ class Game:
             env = self._make_env()
             env.reset(seed=self.seed)
 
-            if i == 0:
+            if self.config.human and i == 0:
                 controller = HumanController()
                 role = "GRACZ"
             else:
-                controller = IdleController()
+                if self.config.user_agent_factory is not None:
+                    agent = self.config.user_agent_factory()
+                    controller = AgentController(
+                        agent, training=self.config.user_agent_training, save_path=self.config.save_path
+                    )
+                else:
+                    controller = IdleController()
                 role = "AI"
+
             car = EnvCar(env=env, controller=controller, role=role)
             self.cars.append(car)
 
@@ -133,10 +147,14 @@ class Game:
                     self.reset_both()
         return True
 
+    def isRunning(self, truncated, terminated) -> bool:
+        return not (terminated or truncated)
+
     def run(self) -> None:
-        self.init_pygame()
+        if self.config.render:
+            self.init_pygame()
+            assert self.screen
         self.init_envs()
-        assert self.screen
 
         for car in self.cars:
             assert car
@@ -145,24 +163,40 @@ class Game:
         while running:
             dt = self.clock.tick(self.config.fps) / 1000.0
 
-            for car in self.cars:
-                car.step(dt)
+            if self.config.render:
+                self.screen.fill((0, 0, 0))
+                self.draw_headers()
 
-            self.screen.fill((0, 0, 0))
-            self.draw_headers()
+            step_results = []
+            if self.config.render:
+                for car, vp in zip(self.cars, self.viewports):
+                    obs, reward, terminated, truncated, _ = car.step(dt)
+                    step_results.append((car, obs, reward, terminated, truncated))
+                    if not self.isRunning(truncated, terminated):
+                        running = False
+                    frame = car.render_array()
+                    vp.blit_env(self.screen, frame)
+            else:
+                for car in self.cars:
+                    obs, reward, terminated, truncated, _ = car.step(dt)
+                    step_results.append((car, obs, reward, terminated, truncated))
+                    if not self.isRunning(truncated, terminated):
+                        running = False
+            if self.config.user_agent_training:
+                for car, obs, reward, terminated, truncated in step_results:
+                    if hasattr(car.controller, "observe"):
+                        car.controller.observe(next_obs=obs, reward=reward, terminated=terminated, truncated=truncated)
 
-            for car, vp in zip(self.cars, self.viewports):
-                car.step(dt)
-                frame = car.render_array()
-                vp.blit_env(self.screen, frame)
+            if self.config.render:
+                self.draw_minimap()
+                self.draw_instructions()
 
-            self.draw_minimap()
-            self.draw_instructions()
+                pygame.display.flip()
 
-            pygame.display.flip()
-
-            running = self.handle_events()
+                running = running and self.handle_events()
 
         for car in self.cars:
             car.close()
-        pygame.quit()
+
+        if self.config.render:
+            pygame.quit()
