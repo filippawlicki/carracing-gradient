@@ -1,14 +1,13 @@
 from typing import Optional
-
 import numpy as np
 
-from .Agent import Agent
+from multi_car_racing.agents import PPOAgent
 
 
 class AgentController:
     """Wraps an Agent and provides begin_episode / action / observe hooks used by the Game."""
 
-    def __init__(self, agent: Agent, training: bool = False, save_path: str = "/"):
+    def __init__(self, agent: PPOAgent, training: bool = False, save_path: str = "/"):
         self.agent = agent
         self.training = training
         self.save_path = save_path

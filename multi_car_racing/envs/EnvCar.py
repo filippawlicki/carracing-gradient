@@ -4,14 +4,12 @@ from typing import Optional, Tuple
 import gymnasium as gym
 import numpy as np
 
-from multi_car_racing.controllers.Controller import Controller
 from multi_car_racing.controllers.AgentController import AgentController
 
 
 @dataclass
 class EnvCar:
     env: gym.Env
-    controller: Controller
     last_obs: Optional[np.ndarray] = None
     total_reward: float = 0.0
 

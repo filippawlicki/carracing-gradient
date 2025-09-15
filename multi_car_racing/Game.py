@@ -5,7 +5,6 @@ import pygame
 import gymnasium as gym
 
 from .controllers.HumanController import HumanController
-from .controllers.IdleController import IdleController
 from .controllers.AgentController import AgentController
 from .views.TrackMap import TrackMap
 from .views.MiniMap import MiniMap
@@ -75,13 +74,10 @@ class Game:
                 controller = HumanController()
                 role = "GRACZ"
             else:
-                if self.config.user_agent_factory is not None:
-                    agent = self.config.user_agent_factory()
-                    controller = AgentController(
-                        agent, training=self.config.user_agent_training, save_path=self.config.save_path
-                    )
-                else:
-                    controller = IdleController()
+                agent = self.config.user_agent_factory()
+                controller = AgentController(
+                    agent, training=self.config.user_agent_training, save_path=self.config.save_path
+                )
                 role = "AI"
 
             car = EnvCar(env=env, controller=controller, role=role)
