@@ -154,7 +154,10 @@ class Game:
 
         running = True
         while running:
-            dt = self.clock.tick(self.config.fps) / 1000.0
+            if self.config.render:
+                dt = self.clock.tick(self.config.fps) / 1000.0
+            else:
+                dt = 0  # arbitrary small timestep, only needed for controllers
 
             if self.config.render:
                 self.screen.fill((0, 0, 0))
@@ -165,28 +168,39 @@ class Game:
                 for car, vp in zip(self.cars, self.viewports):
                     obs, reward, terminated, truncated, _ = car.step(dt)
                     step_results.append((car, obs, reward, terminated, truncated))
-                    if not self.is_running(truncated, terminated):
-                        running = False
                     frame = car.render_array()
                     vp.blit_env(self.screen, frame)
             else:
                 for car in self.cars:
                     obs, reward, terminated, truncated, _ = car.step(dt)
                     step_results.append((car, obs, reward, terminated, truncated))
-                    if not self.is_running(truncated, terminated):
-                        running = False
+
             if self.config.user_agent_training:
                 for car, obs, reward, terminated, truncated in step_results:
                     if hasattr(car.controller, "observe"):
                         car.controller.observe(next_obs=obs, reward=reward, terminated=terminated, truncated=truncated)
+                        # If episode finished, reset the car
+                        if car.controller._episode_done:
+                            car.reset(self.seed)
 
             if self.config.render:
                 self.draw_minimap()
                 self.draw_instructions()
-
                 pygame.display.flip()
-
                 running = running and self.handle_events()
+
+            if self.config.user_agent_training:
+                all_done = all(car.controller.training_done() for car in self.cars)
+                if all_done:
+                    if self.config.render and self.log:
+                        print("[Game] All agents finished training. Exiting.")
+                    break
+
+        for car in self.cars:
+            car.close()
+
+        if self.config.render:
+            pygame.quit()
 
         for car in self.cars:
             car.close()

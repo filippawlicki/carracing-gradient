@@ -4,8 +4,15 @@ from multi_car_racing.GameConfig import GameConfig
 from multi_car_racing.controllers.PPOController import PPOController
 
 def make_ppo_agent(training=False):
+    custom_config = {
+        "lr": 1e-4,
+        "gamma": 0.95,
+        "eps_clip": 0.15,
+        "k_epochs": 8,
+        "max_episodes": 50
+    }
     agent = PPOController(training=training,
-                     save_path='trained/ppo_last.pt')
+                     save_path='trained/ppo_last.pt', train_config=custom_config)
     if not training: # If we are not training, load the trained model
         agent.load('trained/ppo_last.pt')
     return agent

@@ -19,6 +19,7 @@ class EnvCar:
 
     def reset(self, seed: Optional[int] = None) -> None:
         obs, _ = self.env.reset(seed=seed)
+        self.controller.begin_episode(obs)
         self.last_obs = obs
         self.total_reward = 0.0
 
