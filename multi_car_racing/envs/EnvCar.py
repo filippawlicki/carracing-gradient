@@ -4,8 +4,7 @@ from typing import Optional, Tuple
 import gymnasium as gym
 import numpy as np
 
-from multi_car_racing.controllers.AgentController import AgentController
-
+from multi_car_racing.controllers.PPOController import PPOController
 
 @dataclass
 class EnvCar:
@@ -24,7 +23,7 @@ class EnvCar:
         self.total_reward = 0.0
 
     def step(self, dt: float) -> Tuple[np.ndarray, float, bool, bool, dict]:
-        if isinstance(self.controller, AgentController):
+        if isinstance(self.controller, PPOController):
             action = self.controller.action(dt, self.last_obs)
         else:
             action = self.controller.action(dt)
@@ -42,7 +41,7 @@ class EnvCar:
     def car_xy(self) -> Tuple[float, float]:
         car = getattr(self.env.unwrapped, "car", None)
         if car is None or car.hull is None:
-            return (0.0, 0.0)
+            return 0.0, 0.0
         return float(car.hull.position.x), float(car.hull.position.y)
 
     def close(self) -> None:

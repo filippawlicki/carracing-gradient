@@ -5,7 +5,7 @@ import pygame
 import gymnasium as gym
 
 from .controllers.HumanController import HumanController
-from .controllers.AgentController import AgentController
+from .controllers.PPOController import PPOController
 from .views.TrackMap import TrackMap
 from .views.MiniMap import MiniMap
 from .envs.EnvCar import EnvCar
@@ -72,12 +72,9 @@ class Game:
 
             if self.config.human and i == 0:
                 controller = HumanController()
-                role = "GRACZ"
+                role = "PLAYER"
             else:
-                agent = self.config.user_agent_factory()
-                controller = AgentController(
-                    agent, training=self.config.user_agent_training, save_path=self.config.save_path
-                )
+                controller = self.config.user_agent_factory()
                 role = "AI"
 
             car = EnvCar(env=env, controller=controller, role=role)
@@ -94,7 +91,7 @@ class Game:
         assert self.screen and self.font_title
 
         for car, vp in zip(self.cars, self.viewports):
-            color = (0, 255, 0) if car.role == "GRACZ" else (255, 100, 100)
+            color = (0, 255, 0) if car.role == "PLAYER" else (255, 100, 100)
             title = self.font_title.render(car.role, True, color)
             rect = title.get_rect(center=(vp.area.centerx, 25))
             pygame.draw.rect(self.screen, (0, 0, 0), rect.inflate(20, 10))
@@ -122,10 +119,10 @@ class Game:
     def draw_instructions(self) -> None:
         assert self.screen and self.font_small
         tips = [
-            "WASD/Strzałki – GRACZ",
+            "WASD/Arrows - Controls",
             "R – Reset",
-            "ESC – Wyjście",
-            "Kropki na minimapie: pozycje aut",
+            "ESC – Quit",
+            "Minimap on the top-right (green dot is you)",
         ]
         for i, line in enumerate(tips):
             text = self.font_small.render(line, True, (200, 200, 200))
@@ -143,7 +140,7 @@ class Game:
                     self.reset_both()
         return True
 
-    def isRunning(self, truncated, terminated) -> bool:
+    def is_running(self, truncated, terminated) -> bool:
         return not (terminated or truncated)
 
     def run(self) -> None:
@@ -168,7 +165,7 @@ class Game:
                 for car, vp in zip(self.cars, self.viewports):
                     obs, reward, terminated, truncated, _ = car.step(dt)
                     step_results.append((car, obs, reward, terminated, truncated))
-                    if not self.isRunning(truncated, terminated):
+                    if not self.is_running(truncated, terminated):
                         running = False
                     frame = car.render_array()
                     vp.blit_env(self.screen, frame)
@@ -176,7 +173,7 @@ class Game:
                 for car in self.cars:
                     obs, reward, terminated, truncated, _ = car.step(dt)
                     step_results.append((car, obs, reward, terminated, truncated))
-                    if not self.isRunning(truncated, terminated):
+                    if not self.is_running(truncated, terminated):
                         running = False
             if self.config.user_agent_training:
                 for car, obs, reward, terminated, truncated in step_results:
