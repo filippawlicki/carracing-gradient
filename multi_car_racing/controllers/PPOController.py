@@ -6,23 +6,43 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Normal
 
-
 class ActorCritic(nn.Module):
-    """Simple fully connected actor-critic network."""
     def __init__(self, obs_shape, action_dim):
         super().__init__()
         c, h, w = obs_shape
-        flat = c * h * w
-        self.fc = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(flat, 512),
-            nn.ReLU(),
+
+        # Convolutional encoder
+        self.conv = nn.Sequential(
+            nn.Conv2d(c, 32, kernel_size=8, stride=4), nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2), nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1), nn.ReLU(),
+            nn.Flatten()
         )
+
+        # Compute conv output size dynamically
+        with torch.no_grad():
+            dummy = torch.zeros(1, c, h, w)
+            conv_out_size = self.conv(dummy).shape[1]
+
+        # Fully connected layers
+        self.fc = nn.Sequential(
+            nn.Linear(conv_out_size, 512),
+            nn.ReLU()
+        )
+
+        # Actor head
         self.mu = nn.Linear(512, action_dim)
         self.log_std = nn.Parameter(torch.zeros(action_dim))
+
+        # Critic head
         self.value = nn.Linear(512, 1)
 
     def forward(self, x):
+        """
+        x: torch tensor of shape (B, C, H, W), normalized to [0,1]
+        returns: mu, log_std, value
+        """
+        x = self.conv(x)
         x = self.fc(x)
         return self.mu(x), self.log_std, self.value(x)
 
@@ -87,12 +107,21 @@ class PPOController:
         with torch.no_grad():
             mu, log_std, _ = self.old_policy(state_t)
         dist = Normal(mu, log_std.exp())
-        action = dist.sample()
-        logprob = dist.log_prob(action).sum(axis=-1)
+        raw_action = dist.sample()
 
+        # Scale to CarRacing ranges
+        steer = torch.tanh(raw_action[:, 0])  # [-1,1]
+        gas = torch.sigmoid(raw_action[:, 1])  # [0,1]
+        brake = torch.sigmoid(raw_action[:, 2])  # [0,1]
+
+        action = torch.stack([steer, gas, brake], dim=-1)
+        logprob = dist.log_prob(raw_action).sum(axis=-1)
+
+        # Store memory
         self.memory["states"].append(state_t.squeeze(0))
-        self.memory["actions"].append(action.squeeze(0))
+        self.memory["actions"].append(raw_action.squeeze(0))
         self.memory["logprobs"].append(logprob)
+
         return action.squeeze(0).numpy()
 
     def _store_reward(self, reward, done):
