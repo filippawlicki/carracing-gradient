@@ -24,14 +24,14 @@ class EnvCar:
         self.total_reward = 0.0
 
     def step(self, dt: float) -> Tuple[np.ndarray, float, bool, bool, dict]:
-        if isinstance(self.controller, PPOController):
-            action = self.controller.action(dt, self.last_obs)
-        else:
+        if hasattr(self.controller, '__class__') and 'Human' in self.controller.__class__.__name__:
             action = self.controller.action(dt)
+        else:
+            action = self.controller.action(dt, self.last_obs)
 
         obs, reward, terminated, truncated, info = self.env.step(action)
 
-        self.last_obs = obs
+        self.last_obs = obs  # Update for next step
         self.total_reward += float(reward)
         return obs, float(reward), bool(terminated), bool(truncated), info
 

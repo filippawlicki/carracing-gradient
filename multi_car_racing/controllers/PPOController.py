@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Normal
+import matplotlib.pyplot as plt
 
 class ActorCritic(nn.Module):
     def __init__(self, obs_shape, action_dim):
@@ -103,7 +104,27 @@ class PPOController:
 
     def _select_action(self, state: np.ndarray):
         """Sample action from current policy and store log probability."""
-        state_t = torch.FloatTensor(state).permute(2, 0, 1).unsqueeze(0) / 255.0
+        """
+        # Debug: display observation
+        if not hasattr(self, '_select_count'):
+            self._select_count = 0
+        self._select_count += 1
+
+        if self._select_count % 50 == 0:
+            print(f"[DEBUG] BEFORE neural network - state shape: {state.shape}, range: [{state.min()}, {state.max()}]")
+            plt.figure(figsize=(8, 4))
+
+            plt.subplot(1, 2, 1)
+            plt.imshow(state)
+            plt.title(f"Original state (before processing)")
+            plt.axis('off')
+
+            plt.tight_layout()
+            plt.show(block=False)
+            plt.pause(10.0)
+            plt.close()
+        """
+        state_t = torch.FloatTensor(state / 255.0).permute(2, 0, 1).unsqueeze(0)
         with torch.no_grad():
             mu, log_std, _ = self.old_policy(state_t)
         dist = Normal(mu, log_std.exp())
