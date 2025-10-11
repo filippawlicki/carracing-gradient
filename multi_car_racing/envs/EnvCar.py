@@ -31,7 +31,7 @@ class EnvCar:
 
         obs, reward, terminated, truncated, info = self.env.step(action)
 
-        self.last_obs = obs  # Update for next step
+        self.last_obs = obs
         self.total_reward += float(reward)
         return obs, float(reward), bool(terminated), bool(truncated), info
 
