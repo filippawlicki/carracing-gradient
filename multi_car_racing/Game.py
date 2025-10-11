@@ -179,7 +179,6 @@ class Game:
                 for car, obs, reward, terminated, truncated in step_results:
                     if hasattr(car.controller, "observe"):
                         car.controller.observe(next_obs=obs, reward=reward, terminated=terminated, truncated=truncated)
-                        # If episode finished, reset the car
                         if car.controller._episode_done:
                             car.reset(self.seed)
 
@@ -195,12 +194,6 @@ class Game:
                     if self.config.render and self.log:
                         print("[Game] All agents finished training. Exiting.")
                     break
-
-        for car in self.cars:
-            car.close()
-
-        if self.config.render:
-            pygame.quit()
 
         for car in self.cars:
             car.close()
