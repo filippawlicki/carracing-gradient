@@ -27,7 +27,7 @@ class Game:
 
         self.cars = []
 
-        self.track_map = TrackMap(size=config.minimap_size)
+        self.track_map = TrackMap(seed=self.seed, size=config.minimap_size)
         self.minimap = MiniMap(track=self.track_map)
 
         self.viewports: list[ViewportRenderer] = []

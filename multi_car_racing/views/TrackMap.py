@@ -11,14 +11,14 @@ class TrackMap:
     size: int = 200
     margin: int = 50
 
-    # Poniższe ustawia się po wygenerowaniu
+    seed: int = 0
     bounds: Optional[Tuple[float, float, float, float]] = None  # (min_x, max_x, min_y, max_y)
     scale: Optional[float] = None
     offset_xy: Optional[Tuple[float, float]] = None
     image: Optional[np.ndarray] = None  # (size,size,3) uint8
 
     def build_from_env(self, env: gym.Env) -> None:
-        env.reset()
+        env.reset(seed=self.seed)
         track_nodes = env.unwrapped.track
         if not track_nodes:
             self.image = np.zeros((self.size, self.size, 3), dtype=np.uint8)
@@ -59,7 +59,6 @@ class TrackMap:
         self.scale = scale
         self.offset_xy = (off_x, off_y)
 
-    # Mapowanie współrzędnych świata -> pikseli minimapy
     def world_to_minimap(self, x: float, y: float) -> Tuple[int, int]:
         if self.bounds is None or self.scale is None or self.offset_xy is None:
             return self.size // 2, self.size // 2
