@@ -21,3 +21,6 @@ class HumanController:
         if keys[pygame.K_DOWN] or keys[pygame.K_s]:
             brake = self.brake_val
         return np.array([steer, gas, brake], dtype=np.float32)
+
+    def begin_episode(self, obs):  # only to avoid reset errors
+        pass
