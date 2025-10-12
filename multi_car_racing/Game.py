@@ -49,7 +49,7 @@ class Game:
 
         self.seed = self.config.seed if self.config.seed is not None else int(np.random.randint(0, 10_000))
 
-        self.seed = random.choice([495, 1678, 1906, 2836, 8400, 5755, 4293])
+        self.seed = random.choice([495, 1678, 2836])
 
         self.clock = pygame.time.Clock()
         self.screen: Optional[pygame.Surface] = None
