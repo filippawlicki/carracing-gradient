@@ -1,3 +1,4 @@
+import random
 from typing import Optional
 
 import numpy as np
@@ -48,18 +49,23 @@ class Game:
 
         self.seed = self.config.seed if self.config.seed is not None else int(np.random.randint(0, 10_000))
 
+        self.seed = random.choice([495, 1678, 1906, 2836, 8400, 5755, 4293])
+
         self.clock = pygame.time.Clock()
         self.screen: Optional[pygame.Surface] = None
 
         self.cars = []
 
         self.track_map = TrackMap(seed=self.seed, size=config.minimap_size)
+
         self.minimap = MiniMap(track=self.track_map)
 
         self.viewports: list[ViewportRenderer] = []
 
         self.font_title: Optional[pygame.font.Font] = None
         self.font_small: Optional[pygame.font.Font] = None
+
+
 
     def init_pygame(self) -> None:
         if not self.config.render:
