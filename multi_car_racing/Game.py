@@ -62,6 +62,7 @@ class Game:
 
         self.viewports: list[ViewportRenderer] = []
 
+        self.round_time = self.config.round_time
         self.font_title: Optional[pygame.font.Font] = None
         self.font_small: Optional[pygame.font.Font] = None
 
@@ -88,7 +89,7 @@ class Game:
 
     def _make_env(self) -> gym.Env:
         render_mode = None if not self.config.render else "rgb_array"
-        return gym.make("CarRacing-v3", render_mode=render_mode, max_episode_steps=500)
+        return gym.make("CarRacing-v3", render_mode=render_mode, max_episode_steps=self.round_time)
 
     def init_envs(self) -> None:
         base_env = self._make_env()
