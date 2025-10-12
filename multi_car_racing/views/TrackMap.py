@@ -71,34 +71,3 @@ class TrackMap:
         mx = max(0, min(self.size - 1, mx))
         my = max(0, min(self.size - 1, my))
         return mx, my
-
-    # def save_map(self, seed: Optional[int] = None, env_name: str = "CarRacing-v3") -> None:  # method for saving
-    # map to maps dir if seed is None: seed = self.seed else: self.seed = seed
-
-#    #    os.makedirs("maps", exist_ok=True)
-
-#    #    env = gym.make(env_name, render_mode=None)
-    #    try:
-    #        self.build_from_env(env)
-    #    finally:
-    #        env.close()
-
-#    #    if self.image is None:
-    #        self.image = np.zeros((self.size, self.size, 3), dtype=np.uint8)
-
-#    #    image_path = f"maps/map_{seed}.png"
-    #    cv2.imwrite(image_path, self.image)
-    #    print(f"✔ Zapisano obraz: {image_path}")
-
-#    #    tex_entry = f"""
-    #\\begin{{figure}}[h!]
-    #    \\includegraphics[width=0.25\\linewidth]{{{image_path}}}
-    #    \\caption{{Track generated with seed {seed}.}}
-    #    \\label{{fig:map_{seed}}}
-    #\\end{{figure}}
-
-#    #"""
-    #    with open("maps/maps.txt", "a", encoding="utf-8") as f:
-    #        f.write(tex_entry)
-    #    print("✔ Dopisano wpis do maps/maps.txt")
-#

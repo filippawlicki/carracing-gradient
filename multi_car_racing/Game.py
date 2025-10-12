@@ -21,32 +21,6 @@ class Game:
         if not config.render and self.config.human:
             raise ValueError("Human cannot be applied while rendering is off")
 
-        #results = []
-        #
-        #for i in range(1000):
-        #    self.seed = self.config.seed if self.config.seed is not None else int(np.random.randint(0, 10_000))
-        #    env = gym.make("CarRacing-v3", render_mode=None)
-        #    self.track_map = TrackMap(seed=self.seed, size=config.minimap_size)
-        #
-        #    try:
-        #        self.track_map.build_from_env(env)
-        #    finally:
-        #        env.close()
-        #
-        #    curvature = self._compute_curvature(self.track_map)
-        #    results.append((self.seed, curvature, self.track_map))
-        #
-        #results.sort(key=lambda x: x[1])
-        #
-        #best_10 = results[:10]
-        #for seed, curvature, track_map in best_10:
-        #    print(f"✔ Seed {seed} — curvature={curvature:.4f}")
-        #    track_map.save_map()
-        #
-        #for seed, roundness, track_map in best_10:
-        #    print(f"✔ Seed {seed} — roundness={roundness:.3f}")
-        #    track_map.save_map()
-
         self.seed = self.config.seed if self.config.seed is not None else int(np.random.randint(0, 10_000))
 
         self.seed = random.choice([495, 1678, 2836])
@@ -294,42 +268,3 @@ class Game:
 
         if self.config.render:
             pygame.quit()
-
-    #method for generating and saving maps
-    ##def _compute_curvature(self, track_map: 'TrackMap') -> float:
-    ##    """
-    ##    Oblicza średnią zmianę kąta między kolejnymi odcinkami toru.
-    ##    Im mniejsza wartość, tym tor ma łagodniejsze zakręty.
-    ##    """
-    ##    env = gym.make("CarRacing-v3", render_mode=None)
-    ##    env.reset(seed=track_map.seed)
-    ##    nodes = env.unwrapped.track
-    ##    env.close()
-##
-##    if not nodes or len(nodes) < 3:
-##        return float('inf')
-##
-##    angles = []
-##    for i in range(len(nodes)):
-##        x1, y1 = nodes[i][2], nodes[i][3]
-##        x2, y2 = nodes[(i + 1) % len(nodes)][2], nodes[(i + 1) % len(nodes)][3]
-##        x3, y3 = nodes[(i + 2) % len(nodes)][2], nodes[(i + 2) % len(nodes)][3]
-##
-##        # wektory odcinków
-##        v1 = np.array([x2 - x1, y2 - y1])
-##        v2 = np.array([x3 - x2, y3 - y2])
-##
-##        # kąt między nimi
-##        dot = np.dot(v1, v2)
-##        norm = np.linalg.norm(v1) * np.linalg.norm(v2)
-##        if norm == 0:
-##            continue
-##        cos_angle = np.clip(dot / norm, -1.0, 1.0)
-##        angle = np.arccos(cos_angle)
-##        angles.append(angle)
-##
-##    if not angles:
-##        return float('inf')
-##
-##    # średnia zmiana kąta (radiany)
-##    return float(np.mean(angles))
