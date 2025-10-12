@@ -88,7 +88,7 @@ class Game:
 
     def _make_env(self) -> gym.Env:
         render_mode = None if not self.config.render else "rgb_array"
-        return gym.make("CarRacing-v3", render_mode=render_mode, max_episode_steps=1500)
+        return gym.make("CarRacing-v3", render_mode=render_mode, max_episode_steps=500)
 
     def init_envs(self) -> None:
         base_env = self._make_env()
@@ -182,6 +182,7 @@ class Game:
         for car in self.cars:
             assert car
 
+        end = False
         running = True
         while running:
             if self.config.render:
@@ -200,6 +201,7 @@ class Game:
                     step_results.append((car, obs, reward, terminated, truncated))
                     frame = car.render_array()
                     vp.blit_env(self.screen, frame)
+                    end = not self.is_running(truncated, terminated)
             else:
                 for car in self.cars:
                     obs, reward, terminated, truncated, _ = car.step(dt)
@@ -217,6 +219,11 @@ class Game:
                 self.draw_instructions()
                 pygame.display.flip()
                 running = running and self.handle_events()
+
+            if not self.config.user_agent_training and end:
+                for car in self.cars:
+                    car.reset()
+                    end = False
 
             if self.config.user_agent_training:
                 all_done = all(car.controller.training_done() for car in self.cars)
