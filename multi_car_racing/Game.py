@@ -62,7 +62,6 @@ class Game:
 
         self.viewports: list[ViewportRenderer] = []
 
-        self.round_time = self.config.round_time
         self.step_idx = 0
         self.font_title: Optional[pygame.font.Font] = None
         self.font_small: Optional[pygame.font.Font] = None
@@ -90,7 +89,7 @@ class Game:
 
     def _make_env(self) -> gym.Env:
         render_mode = None if not self.config.render else "rgb_array"
-        return gym.make("CarRacing-v3", render_mode=render_mode, max_episode_steps=self.round_time)
+        return gym.make("CarRacing-v3", render_mode=render_mode)
 
     def init_envs(self) -> None:
         base_env = self._make_env()
@@ -181,12 +180,9 @@ class Game:
     def draw_stopper(self) -> None:
         assert self.screen and self.font_small
 
-        total_ms = int(self.round_time)
-        elapsed_ms = int(self.step_idx)
-        remaining_ms = max(0, total_ms - elapsed_ms)
-
-        s = remaining_ms // 100
-        ms = remaining_ms % 100
+        total_ms = int(self.step_idx)
+        s = total_ms // 100
+        ms = total_ms % 100
         time_text = f"Time: {s}:{ms}"
 
         minimap_x = self.config.width - self.config.minimap_size + 180
@@ -216,6 +212,9 @@ class Game:
             rect = text.get_rect(bottomright=(self.config.width - 10, self.config.height - 10 - i * 25))
             self.screen.blit(text, rect)
 
+    def is_running(self, truncated, terminated) -> bool:
+        return not (terminated or truncated)
+
     def handle_events(self) -> bool:
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
@@ -226,9 +225,6 @@ class Game:
                 if e.key == pygame.K_r:
                     self.reset_both()
         return True
-
-    def is_running(self, truncated, terminated) -> bool:
-        return not (terminated or truncated)
 
     def run(self) -> None:
         if self.config.render:
@@ -245,7 +241,7 @@ class Game:
             if self.config.render:
                 dt = self.clock.tick(self.config.fps) / 1000.0
             else:
-                dt = 0  # arbitrary small timestep, only needed for controllers
+                dt = 0
 
             if self.config.render:
                 self.screen.fill((0, 0, 0))
