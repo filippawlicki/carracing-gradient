@@ -55,7 +55,7 @@ def run_train():
 
 
 def run_play_vs_ai():
-    print("[Main] Starting Player vs AI mode...")
+    print("Starting Player vs AI mode...")
 
     # Check what models are available
     models = {
@@ -80,11 +80,11 @@ def run_play_vs_ai():
     if 'sb3' in available:
         model_path = available['sb3']
         agent_factory = lambda: make_sb3_agent(training=False, model_path=model_path)
-        print(f"[Main] Using SB3 agent")
+        print(f"Using SB3 agent")
     else:
         model_path = available['custom']
         agent_factory = lambda: make_ppo_agent(training=False)
-        print(f"[Main] Using custom PPO agent")
+        print(f"Using custom PPO agent")
 
     config = GameConfig(
         number_of_cars=2,
