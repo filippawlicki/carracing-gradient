@@ -4,10 +4,10 @@ from typing import Optional, Callable, Any
 
 @dataclass
 class GameConfig:
-    width: int = 1400
-    height: int = 900
+    width: int = 1600
+    height: int = 1000
     fps: int = 60
-    round_time: int = 1000
+    round_time: int = 1000  # milliseconds
     minimap_size: int = 180
     seed: Optional[int] = None
     number_of_cars: int = 2

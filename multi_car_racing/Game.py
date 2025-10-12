@@ -63,6 +63,7 @@ class Game:
         self.viewports: list[ViewportRenderer] = []
 
         self.round_time = self.config.round_time
+        self.step_idx = 0
         self.font_title: Optional[pygame.font.Font] = None
         self.font_small: Optional[pygame.font.Font] = None
 
@@ -129,23 +130,78 @@ class Game:
             self.screen.blit(title, rect)
 
     def draw_minimap(self) -> None:
-        assert self.screen
+        assert self.screen and self.font_small
 
-        x = self.config.width - self.config.minimap_size - 10
-        y = 10
+        pad = 3
+        title_h = 22
+        radius = 10
+        margin = 1
+
+        panel_w = self.config.minimap_size + 2 * pad
+        panel_h = self.config.minimap_size + 2 * pad + title_h + 1
+
+        panel_x = self.config.width - panel_w - margin
+        panel_y = margin
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
+
+        shadow = panel_rect.copy()
+        shadow.x += 2
+        shadow.y += 2
+        pygame.draw.rect(self.screen, (0, 0, 0), shadow, border_radius=radius)
+
+        pygame.draw.rect(self.screen, (20, 20, 20), panel_rect, border_radius=radius)
+        pygame.draw.rect(self.screen, (70, 70, 70), panel_rect, width=2, border_radius=radius)
+
+        title_rect = pygame.Rect(panel_rect.x, panel_rect.y, panel_rect.w, title_h)
+        pygame.draw.rect(self.screen, (30, 30, 30), title_rect, border_radius=radius)
+        pygame.draw.rect(self.screen, (30, 30, 30),
+                         pygame.Rect(title_rect.x, title_rect.y + radius, title_rect.w, title_rect.h - radius))
+        title_text = self.font_small.render("Minimap", True, (200, 200, 200))
+        self.screen.blit(title_text, title_text.get_rect(midleft=(title_rect.x + pad + 2, title_rect.centery)))
+
+        map_rect = pygame.Rect(
+            panel_rect.x + pad,
+            panel_rect.y + pad + title_h,
+            self.config.minimap_size,
+            self.config.minimap_size
+        )
+
         surf = self.minimap.to_surface()
-        # tło + mapa
-        pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(x, y, self.config.minimap_size, self.config.minimap_size))
-        self.screen.blit(surf, (x, y))
+        pygame.draw.rect(self.screen, (0, 0, 0), map_rect, border_radius=6)
+        self.screen.blit(surf, map_rect.topleft)
 
         players = []
         for car in self.cars:
             assert car
             car_x, car_y = car.car_xy()
-            player = self.track_map.world_to_minimap(car_x, car_y)
-            players.append(player)
+            players.append(self.track_map.world_to_minimap(car_x, car_y))
 
-        self.minimap.draw_cars(self.screen, (x, y), players)
+        self.minimap.draw_cars(self.screen, map_rect.topleft, players)
+
+    def draw_stopper(self) -> None:
+        assert self.screen and self.font_small
+
+        total_ms = int(self.round_time)
+        elapsed_ms = int(self.step_idx)
+        remaining_ms = max(0, total_ms - elapsed_ms)
+
+        s = remaining_ms // 100
+        ms = remaining_ms % 100
+        time_text = f"Time: {s}:{ms}"
+
+        minimap_x = self.config.width - self.config.minimap_size + 180
+        minimap_y = 220
+
+        panel_w = 160
+        panel_h = 40
+        panel_rect = pygame.Rect(minimap_x - panel_w - 10, minimap_y, panel_w, panel_h)
+
+        pygame.draw.rect(self.screen, (20, 20, 20), panel_rect, border_radius=10)
+        pygame.draw.rect(self.screen, (70, 70, 70), panel_rect, width=2, border_radius=10)
+
+        text = self.font_small.render(time_text, True, (230, 230, 230))
+        text_rect = text.get_rect(center=panel_rect.center)
+        self.screen.blit(text, text_rect)
 
     def draw_instructions(self) -> None:
         assert self.screen and self.font_small
@@ -217,14 +273,18 @@ class Game:
 
             if self.config.render:
                 self.draw_minimap()
+                self.draw_stopper()
                 self.draw_instructions()
                 pygame.display.flip()
                 running = running and self.handle_events()
+
+            self.step_idx += 1
 
             if not self.config.user_agent_training and end:
                 for car in self.cars:
                     car.reset()
                     end = False
+                    self.step_idx = 0
 
             if self.config.user_agent_training:
                 all_done = all(car.controller.training_done() for car in self.cars)
