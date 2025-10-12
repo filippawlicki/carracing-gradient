@@ -22,27 +22,27 @@ class Game:
             raise ValueError("Human cannot be applied while rendering is off")
 
         #results = []
-#
+        #
         #for i in range(1000):
         #    self.seed = self.config.seed if self.config.seed is not None else int(np.random.randint(0, 10_000))
         #    env = gym.make("CarRacing-v3", render_mode=None)
         #    self.track_map = TrackMap(seed=self.seed, size=config.minimap_size)
-#
+        #
         #    try:
         #        self.track_map.build_from_env(env)
         #    finally:
         #        env.close()
-#
+        #
         #    curvature = self._compute_curvature(self.track_map)
         #    results.append((self.seed, curvature, self.track_map))
-#
+        #
         #results.sort(key=lambda x: x[1])
-#
+        #
         #best_10 = results[:10]
         #for seed, curvature, track_map in best_10:
         #    print(f"✔ Seed {seed} — curvature={curvature:.4f}")
         #    track_map.save_map()
-#
+        #
         #for seed, roundness, track_map in best_10:
         #    print(f"✔ Seed {seed} — roundness={roundness:.3f}")
         #    track_map.save_map()
@@ -64,8 +64,6 @@ class Game:
 
         self.font_title: Optional[pygame.font.Font] = None
         self.font_small: Optional[pygame.font.Font] = None
-
-
 
     def init_pygame(self) -> None:
         if not self.config.render:
@@ -233,8 +231,6 @@ class Game:
         if self.config.render:
             pygame.quit()
 
-
-
     #method for generating and saving maps
     ##def _compute_curvature(self, track_map: 'TrackMap') -> float:
     ##    """
@@ -246,30 +242,30 @@ class Game:
     ##    nodes = env.unwrapped.track
     ##    env.close()
 ##
-    ##    if not nodes or len(nodes) < 3:
-    ##        return float('inf')
+##    if not nodes or len(nodes) < 3:
+##        return float('inf')
 ##
-    ##    angles = []
-    ##    for i in range(len(nodes)):
-    ##        x1, y1 = nodes[i][2], nodes[i][3]
-    ##        x2, y2 = nodes[(i + 1) % len(nodes)][2], nodes[(i + 1) % len(nodes)][3]
-    ##        x3, y3 = nodes[(i + 2) % len(nodes)][2], nodes[(i + 2) % len(nodes)][3]
+##    angles = []
+##    for i in range(len(nodes)):
+##        x1, y1 = nodes[i][2], nodes[i][3]
+##        x2, y2 = nodes[(i + 1) % len(nodes)][2], nodes[(i + 1) % len(nodes)][3]
+##        x3, y3 = nodes[(i + 2) % len(nodes)][2], nodes[(i + 2) % len(nodes)][3]
 ##
-    ##        # wektory odcinków
-    ##        v1 = np.array([x2 - x1, y2 - y1])
-    ##        v2 = np.array([x3 - x2, y3 - y2])
+##        # wektory odcinków
+##        v1 = np.array([x2 - x1, y2 - y1])
+##        v2 = np.array([x3 - x2, y3 - y2])
 ##
-    ##        # kąt między nimi
-    ##        dot = np.dot(v1, v2)
-    ##        norm = np.linalg.norm(v1) * np.linalg.norm(v2)
-    ##        if norm == 0:
-    ##            continue
-    ##        cos_angle = np.clip(dot / norm, -1.0, 1.0)
-    ##        angle = np.arccos(cos_angle)
-    ##        angles.append(angle)
+##        # kąt między nimi
+##        dot = np.dot(v1, v2)
+##        norm = np.linalg.norm(v1) * np.linalg.norm(v2)
+##        if norm == 0:
+##            continue
+##        cos_angle = np.clip(dot / norm, -1.0, 1.0)
+##        angle = np.arccos(cos_angle)
+##        angles.append(angle)
 ##
-    ##    if not angles:
-    ##        return float('inf')
+##    if not angles:
+##        return float('inf')
 ##
-    ##    # średnia zmiana kąta (radiany)
-    ##    return float(np.mean(angles))
+##    # średnia zmiana kąta (radiany)
+##    return float(np.mean(angles))
