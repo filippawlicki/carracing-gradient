@@ -35,6 +35,7 @@ class Game:
 
         self.finish_line: Optional[tuple[tuple[float, float], tuple[float, float]]] = None
         self.winner: Optional[str] = None
+        self.winner_banner: Optional[str] = None
 
         self.step_idx: int = 0
 
@@ -81,8 +82,17 @@ class Game:
             self.viewports.append(vp)
 
     def _make_env(self) -> gym.Env:
+        """
+        Tworzy środowisko CarRacing-v3 bez HUD (pasków na dole).
+        """
         render_mode = None if not self.config.render else "rgb_array"
-        return gym.make("CarRacing-v3", render_mode=render_mode)
+        env = gym.make("CarRacing-v3", render_mode=render_mode)
+
+        # Wyłącz HUD w każdym środowisku
+        if hasattr(env.unwrapped, "render"):
+            env.unwrapped.render_hud = False  # <- kluczowe, żeby nie było pasków
+
+        return env
 
     def init_envs(self) -> None:
         base_env = self._make_env()
@@ -230,10 +240,12 @@ class Game:
     def handle_events(self) -> bool:
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
-                return False
+                pygame.quit()
+                exit()
             if e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
-                    return False
+                    pygame.quit()
+                    exit()
                 if e.key == pygame.K_r:
                     self.reset_both()
         return True
@@ -241,6 +253,7 @@ class Game:
     def segments_intersect(self, p, p2, q, q2) -> bool:
         def orient(a, b, c):
             return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
         o1 = orient(p, p2, q)
         o2 = orient(p, p2, q2)
         o3 = orient(q, q2, p)
@@ -261,6 +274,389 @@ class Game:
         prev = int(getattr(car, "progress", 0.0) * total + 0.5)
         if best_idx > prev:
             car.progress = best_idx / total
+
+    def show_end_screen(self):
+        if not self.config.render:
+            return
+
+        assert self.screen and self.font_title
+
+        clock = pygame.time.Clock()
+        t = 0
+        waiting = True
+
+        # Tekst zależny od zwycięzcy
+        if self.winner == "PLAYER":
+            winner_text = "WYGRAŁ GRACZ!"
+            color = (0, 255, 0)
+        else:
+            winner_text = "WYGRAŁO AI!"
+            color = (255, 100, 100)
+
+        button_font = pygame.font.Font(None, int(self.config.height * 0.07))
+        menu_rect = pygame.Rect(0, 0, 300, 100)
+        menu_rect.center = (self.config.width // 2, self.config.height * 2 // 3)
+
+        while waiting:
+            self.screen.fill((10, 10, 10))
+
+            # 🔹 Tytuł – pulsujący
+            pulse = (np.sin(t * 0.1) + 1) / 2
+            scale = 1.0 + 0.05 * pulse
+            font_size = int(self.config.height * 0.12 * scale)
+            font = pygame.font.Font(None, font_size)
+            title_surface = font.render(winner_text, True, color)
+            title_rect = title_surface.get_rect(center=(self.config.width // 2, self.config.height // 3))
+            self.screen.blit(title_surface, title_rect)
+
+            # 🔹 Przycisk MENU
+            mouse_pos = pygame.mouse.get_pos()
+            hover = menu_rect.collidepoint(mouse_pos)
+            menu_color = tuple(min(255, c + 40) for c in (100, 200, 255)) if hover else (100, 200, 255)
+            pygame.draw.rect(self.screen, menu_color, menu_rect, border_radius=25)
+            pygame.draw.rect(self.screen, (50, 50, 50), menu_rect, width=4, border_radius=25)
+
+            text_surf = button_font.render("MENU", True, (0, 0, 0))
+            self.screen.blit(text_surf, text_surf.get_rect(center=menu_rect.center))
+
+            pygame.display.flip()
+            t += 1
+            clock.tick(60)
+
+            # Obsługa zdarzeń
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        exit()
+                    elif event.key == pygame.K_RETURN:
+                        waiting = False  # powrót do menu
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if menu_rect.collidepoint(event.pos):
+                        waiting = False  # powrót do menu
+
+    def show_start_screen(self):
+        if not self.config.render:
+            return
+
+        assert self.screen and self.font_title
+
+        # Czcionki
+        title_font = pygame.font.Font(None, int(self.config.height * 0.18))
+        button_font = pygame.font.Font(None, int(self.config.height * 0.07))
+        info_font = pygame.font.Font(None, 40)
+
+        title_text = " CAR RACING "
+
+        # Przyciski START i EXIT
+        button_w, button_h = 300, 100
+        start_rect = pygame.Rect(0, 0, button_w, button_h)
+        exit_rect = pygame.Rect(0, 0, button_w, button_h)
+        start_rect.center = (self.config.width // 2, self.config.height * 2 // 3 - 80)
+        exit_rect.center = (self.config.width // 2, self.config.height * 2 // 3 + 80)
+
+        clock = pygame.time.Clock()
+        t = 0
+        waiting = True
+
+        while waiting:
+            self.screen.fill((10, 10, 10))
+
+            # 🔹 Tło – asfalt z liniami wyścigowymi
+            # Linie boczne toru
+            track_width = 300
+            center_x = self.config.width // 2
+            pygame.draw.rect(self.screen, (40, 40, 40),
+                             (center_x - track_width // 2, 0, track_width, self.config.height))
+
+            # Białe linie boczne
+            pygame.draw.line(self.screen, (200, 200, 200),
+                             (center_x - track_width // 2, 0),
+                             (center_x - track_width // 2, self.config.height), 5)
+            pygame.draw.line(self.screen, (200, 200, 200),
+                             (center_x + track_width // 2, 0),
+                             (center_x + track_width // 2, self.config.height), 5)
+
+            # Przerywana linia środkowa (animowana)
+            dash_length = 30
+            gap_length = 20
+            y_offset = (t * 8) % (dash_length + gap_length)
+            for i in range(-1, self.config.height // (dash_length + gap_length) + 2):
+                y_start = i * (dash_length + gap_length) - y_offset
+                pygame.draw.line(self.screen, (255, 255, 100),
+                                 (center_x, y_start),
+                                 (center_x, y_start + dash_length), 6)
+
+            # 🔹 Tytuł – pulsujący z efektem
+            pulse = (np.sin(t * 0.1) + 1) / 2
+            scale = 1.0 + 0.08 * pulse
+            font_size = int(self.config.height * 0.15 * scale)
+            font = pygame.font.Font(None, font_size)
+            title_surface = font.render(title_text, True, (255, 200 + int(55 * pulse), 50))
+            title_rect = title_surface.get_rect(center=(self.config.width // 2, self.config.height // 4))
+
+            # Cień tytułu
+            shadow = font.render(title_text, True, (0, 0, 0))
+            self.screen.blit(shadow, (title_rect.x + 4, title_rect.y + 4))
+            self.screen.blit(title_surface, title_rect)
+
+            # 🔹 Rysowanie przycisków START i EXIT
+            mouse_pos = pygame.mouse.get_pos()
+            for label, rect, base_color in [
+                ("START", start_rect, (100, 255, 100)),
+                ("WYJŚCIE", exit_rect, (255, 100, 100))
+            ]:
+                hover = rect.collidepoint(mouse_pos)
+                color = tuple(min(255, c + 40) for c in base_color) if hover else base_color
+
+                # Cień przycisku
+                shadow_rect = rect.copy()
+                shadow_rect.x += 4
+                shadow_rect.y += 4
+                pygame.draw.rect(self.screen, (0, 0, 0), shadow_rect, border_radius=25)
+
+                pygame.draw.rect(self.screen, color, rect, border_radius=25)
+                pygame.draw.rect(self.screen, (255, 255, 255), rect, width=4, border_radius=25)
+
+                text_surf = button_font.render(label, True, (0, 0, 0))
+                self.screen.blit(text_surf, text_surf.get_rect(center=rect.center))
+
+            # 🔹 Samochody wyścigowe z perspektywą 3D
+            bounce = int(5 * np.sin(t * 0.15))  # Animacja odbijania
+
+            # Lewy samochód (gracz - zielony wyścigówka)
+            car_x_left = start_rect.centerx - 280
+            car_y_left = start_rect.centery - 50 + bounce
+
+            # Cień samochodu
+            shadow_points = [(car_x_left + 20, car_y_left + 140), (car_x_left + 90, car_y_left + 140),
+                             (car_x_left + 80, car_y_left + 150), (car_x_left + 30, car_y_left + 150)]
+            pygame.draw.polygon(self.screen, (20, 20, 20, 100), shadow_points)
+
+            # Tylna część (silnik)
+            pygame.draw.rect(self.screen, (0, 150, 0), (car_x_left + 25, car_y_left + 90, 60, 40), border_radius=8)
+
+            # Główny korpus (aerodynamiczny kształt)
+            body_points = [
+                (car_x_left + 55, car_y_left),  # Przód (nos)
+                (car_x_left + 20, car_y_left + 40),  # Lewy bok
+                (car_x_left + 20, car_y_left + 100),  # Lewy tył
+                (car_x_left + 90, car_y_left + 100),  # Prawy tył
+                (car_x_left + 90, car_y_left + 40),  # Prawy bok
+            ]
+            pygame.draw.polygon(self.screen, (0, 220, 0), body_points)
+
+            # Błysk na karoserii (efekt metaliczny)
+            highlight_points = [
+                (car_x_left + 55, car_y_left + 10),
+                (car_x_left + 30, car_y_left + 45),
+                (car_x_left + 35, car_y_left + 45),
+                (car_x_left + 55, car_y_left + 15),
+            ]
+            pygame.draw.polygon(self.screen, (100, 255, 100), highlight_points)
+
+            # Kabina/kokpit
+            cockpit = [(car_x_left + 55, car_y_left + 30), (car_x_left + 40, car_y_left + 50),
+                       (car_x_left + 70, car_y_left + 50)]
+            pygame.draw.polygon(self.screen, (50, 150, 200), cockpit)
+            pygame.draw.polygon(self.screen, (255, 255, 255), cockpit, 2)
+
+            # Reflektory LED
+            pygame.draw.circle(self.screen, (255, 255, 255), (car_x_left + 45, car_y_left + 8), 6)
+            pygame.draw.circle(self.screen, (255, 255, 255), (car_x_left + 65, car_y_left + 8), 6)
+            pygame.draw.circle(self.screen, (255, 255, 100), (car_x_left + 45, car_y_left + 8), 4)
+            pygame.draw.circle(self.screen, (255, 255, 100), (car_x_left + 65, car_y_left + 8), 4)
+
+            # Spoiler tylny
+            pygame.draw.rect(self.screen, (0, 100, 0), (car_x_left + 15, car_y_left + 85, 80, 8), border_radius=2)
+            pygame.draw.rect(self.screen, (0, 180, 0), (car_x_left + 15, car_y_left + 82, 80, 3))
+
+            # Koła z bieżnikiem
+            for wheel_y in [car_y_left + 35, car_y_left + 85]:
+                for wheel_x in [car_x_left + 15, car_x_left + 95]:
+                    pygame.draw.circle(self.screen, (20, 20, 20), (wheel_x, wheel_y), 16)
+                    pygame.draw.circle(self.screen, (60, 60, 60), (wheel_x, wheel_y), 12)
+                    pygame.draw.circle(self.screen, (100, 100, 100), (wheel_x, wheel_y), 8)
+                    # Szprychy obracające się
+                    angle = t * 0.3
+                    for i in range(4):
+                        a = angle + i * np.pi / 2
+                        x1 = wheel_x + 4 * np.cos(a)
+                        y1 = wheel_y + 4 * np.sin(a)
+                        x2 = wheel_x + 10 * np.cos(a)
+                        y2 = wheel_y + 10 * np.sin(a)
+                        pygame.draw.line(self.screen, (150, 150, 150), (x1, y1), (x2, y2), 2)
+
+            # Numer wyścigowy
+            number_font = pygame.font.Font(None, 40)
+            num_surf = number_font.render("1", True, (255, 255, 255))
+            self.screen.blit(num_surf, (car_x_left + 48, car_y_left + 60))
+
+            # Prawy samochód (AI - czerwona wyścigówka)
+            car_x_right = start_rect.centerx + 200
+            car_y_right = start_rect.centery - 50 - bounce
+
+            # Cień samochodu
+            shadow_points = [(car_x_right + 20, car_y_right + 140), (car_x_right + 90, car_y_right + 140),
+                             (car_x_right + 80, car_y_right + 150), (car_x_right + 30, car_y_right + 150)]
+            pygame.draw.polygon(self.screen, (20, 20, 20, 100), shadow_points)
+
+            # Tylna część (silnik)
+            pygame.draw.rect(self.screen, (150, 0, 0), (car_x_right + 25, car_y_right + 90, 60, 40), border_radius=8)
+
+            # Główny korpus
+            body_points = [
+                (car_x_right + 55, car_y_right),
+                (car_x_right + 20, car_y_right + 40),
+                (car_x_right + 20, car_y_right + 100),
+                (car_x_right + 90, car_y_right + 100),
+                (car_x_right + 90, car_y_right + 40),
+            ]
+            pygame.draw.polygon(self.screen, (255, 40, 40), body_points)
+
+            # Błysk metaliczny
+            highlight_points = [
+                (car_x_right + 55, car_y_right + 10),
+                (car_x_right + 30, car_y_right + 45),
+                (car_x_right + 35, car_y_right + 45),
+                (car_x_right + 55, car_y_right + 15),
+            ]
+            pygame.draw.polygon(self.screen, (255, 150, 150), highlight_points)
+
+            # Kabina/kokpit
+            cockpit = [(car_x_right + 55, car_y_right + 30), (car_x_right + 40, car_y_right + 50),
+                       (car_x_right + 70, car_y_right + 50)]
+            pygame.draw.polygon(self.screen, (50, 150, 200), cockpit)
+            pygame.draw.polygon(self.screen, (255, 255, 255), cockpit, 2)
+
+            # Reflektory LED
+            pygame.draw.circle(self.screen, (255, 255, 255), (car_x_right + 45, car_y_right + 8), 6)
+            pygame.draw.circle(self.screen, (255, 255, 255), (car_x_right + 65, car_y_right + 8), 6)
+            pygame.draw.circle(self.screen, (255, 255, 100), (car_x_right + 45, car_y_right + 8), 4)
+            pygame.draw.circle(self.screen, (255, 255, 100), (car_x_right + 65, car_y_right + 8), 4)
+
+            # Spoiler tylny
+            pygame.draw.rect(self.screen, (100, 0, 0), (car_x_right + 15, car_y_right + 85, 80, 8), border_radius=2)
+            pygame.draw.rect(self.screen, (255, 100, 100), (car_x_right + 15, car_y_right + 82, 80, 3))
+
+            # Koła z bieżnikiem
+            for wheel_y in [car_y_right + 35, car_y_right + 85]:
+                for wheel_x in [car_x_right + 15, car_x_right + 95]:
+                    pygame.draw.circle(self.screen, (20, 20, 20), (wheel_x, wheel_y), 16)
+                    pygame.draw.circle(self.screen, (60, 60, 60), (wheel_x, wheel_y), 12)
+                    pygame.draw.circle(self.screen, (100, 100, 100), (wheel_x, wheel_y), 8)
+                    # Szprychy obracające się
+                    angle = -t * 0.3
+                    for i in range(4):
+                        a = angle + i * np.pi / 2
+                        x1 = wheel_x + 4 * np.cos(a)
+                        y1 = wheel_y + 4 * np.sin(a)
+                        x2 = wheel_x + 10 * np.cos(a)
+                        y2 = wheel_y + 10 * np.sin(a)
+                        pygame.draw.line(self.screen, (150, 150, 150), (x1, y1), (x2, y2), 2)
+
+            # Numer wyścigowy
+            num_surf = number_font.render("2", True, (255, 255, 255))
+            self.screen.blit(num_surf, (car_x_right + 48, car_y_right + 60))
+
+            # Napisy pod samochodami z efektami
+            label_font = pygame.font.Font(None, 36)
+
+            # Efekt świetlny pod napisem GRACZ
+            glow_pulse = int(30 * (np.sin(t * 0.2) + 1) / 2)
+            player_label = label_font.render("GRACZ", True, (100 + glow_pulse, 255, 100 + glow_pulse))
+            player_shadow = label_font.render("GRACZ", True, (0, 50, 0))
+            player_pos = (car_x_left + 55, car_y_left + 155)
+            self.screen.blit(player_shadow, (player_pos[0] - 28, player_pos[1] + 2))
+            self.screen.blit(player_label, (player_pos[0] - 30, player_pos[1]))
+
+            # Efekt świetlny pod napisem AI
+            ai_label = label_font.render("AI", True, (255, 100 + glow_pulse, 100 + glow_pulse))
+            ai_shadow = label_font.render("AI", True, (50, 0, 0))
+            ai_pos = (car_x_right + 55, car_y_right + 155)
+            self.screen.blit(ai_shadow, (ai_pos[0] - 10, ai_pos[1] + 2))
+            self.screen.blit(ai_label, (ai_pos[0] - 12, ai_pos[1]))
+
+            # 🔹 Info na dole
+            info_surf = info_font.render("Naciśnij ENTER lub kliknij START", True, (220, 220, 220))
+            self.screen.blit(info_surf, info_surf.get_rect(center=(self.config.width // 2, self.config.height - 50)))
+
+            pygame.display.flip()
+            t += 1
+            clock.tick(60)
+
+            # Obsługa zdarzeń
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        exit()
+                    elif event.key == pygame.K_RETURN:
+                        waiting = False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if start_rect.collidepoint(event.pos):
+                        waiting = False
+                    elif exit_rect.collidepoint(event.pos):
+                        pygame.quit()
+                        exit()
+
+    def countdown(self):
+        if not self.config.render:
+            return
+
+        assert self.screen and self.font_title
+
+        big_font_size = int(self.config.height * 0.4)
+        big_font = pygame.font.Font(None, big_font_size)
+        clock = pygame.time.Clock()
+
+        sequence = [
+            ("3", (255, 0, 0)),
+            ("2", (255, 140, 0)),
+            ("1", (255, 255, 0)),
+            ("START!", (0, 255, 0)),
+        ]
+
+        for num, color in sequence:
+            t = 0
+            duration = 60  # ok. 1 sekunda (60 klatek)
+            while t < duration:
+                self.screen.fill((0, 0, 0))
+                pulse = (np.sin(t * 0.2) + 1) / 2  # efekt „pulsowania"
+                scale = 1.0 + 0.15 * pulse
+                font_size = int(big_font_size * scale)
+                font = pygame.font.Font(None, font_size)
+
+                # render tekstu
+                text = font.render(num, True, color)
+                rect = text.get_rect(center=(self.config.width // 2, self.config.height // 2))
+
+                # cień dla lepszego efektu
+                shadow = font.render(num, True, (0, 0, 0))
+                self.screen.blit(shadow, (rect.x + 5, rect.y + 5))
+                self.screen.blit(text, rect)
+
+                pygame.display.flip()
+                clock.tick(60)
+                t += 1
+
+                # Obsługa ESC podczas odliczania
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        exit()
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            pygame.quit()
+                            exit()
+
+        self.clock.tick()
 
     def run(self) -> None:
         if self.config.render:
@@ -320,19 +716,40 @@ class Game:
                             car.reset(self.seed)
 
             if not self.config.user_agent_training and end:
+
                 for car in self.cars:
                     car.reset(self.seed)
                     cx, cy = car.car_xy()
                     car.prev_pos = (cx, cy)
                     car.progress = 0.0
+                self.winner_banner = self.winner
+
                 self.winner = None
                 end = False
+                running = False
                 self.step_idx = 0
 
             if self.config.render:
                 self.draw_minimap()
                 self.draw_stopper()
-                self.draw_instructions()
+              #  self.draw_instructions()
+                # 🔹 Stałe napisy GRACZ i AI na dole ekranu
+                assert self.font_small
+                label_font = self.font_small
+
+                # Pozycje napisów (na dole ekranu, trochę nad dolną krawędzią)
+                screen_center_x = self.config.width // 2
+                bottom_y = self.config.height - 30
+
+                # GRACZ – zielony
+                player_label = label_font.render("GRACZ", True, (0, 255, 0))
+                player_rect = player_label.get_rect(center=(screen_center_x - 100, bottom_y))
+                self.screen.blit(player_label, player_rect)
+
+                # AI – czerwony
+                ai_label = label_font.render("AI", True, (255, 0, 0))
+                ai_rect = ai_label.get_rect(center=(screen_center_x + 100, bottom_y))
+                self.screen.blit(ai_label, ai_rect)
 
                 if self.winner and self.font_title:
                     msg = f"FINISH! Winner: {self.winner}"
@@ -355,5 +772,53 @@ class Game:
         for car in self.cars:
             car.close()
 
+    def start_game(self) -> None:
+        """Główna pętla aplikacji – menu → gra → ekran końcowy → powrót do menu."""
+        if self.config.render:
+            self.init_pygame()
+
+        app_running = True
+        while app_running:
+            # 🔹 EKRAN STARTOWY
+            if self.config.render:
+                self.show_start_screen()
+
+            # 🔹 Przygotowanie środowiska gry
+            self.cars.clear()
+            self.track_map = TrackMap(seed=self.seed, size=self.config.minimap_size)
+            self.minimap = MiniMap(track=self.track_map)
+            self.viewports.clear()
+            self.winner = None
+            self.winner_banner = None
+
+            self.init_envs()
+
+            # 🔹 Odliczanie
+            if self.config.render:
+                self.countdown()
+
+            # 🔹 Uruchomienie rozgrywki
+            self.run()
+
+            # 🔹 EKRAN KOŃCOWY
+            if self.config.render:
+                self.show_end_screen()
+
+            # 🔹 Po zakończeniu pytamy gracza, czy chce zagrać ponownie
+            # (Ekran końcowy już ma przycisk MENU, który prowadzi do show_start_screen)
+            # Tu tylko sprawdzamy, czy użytkownik nie zamknął gry
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        exit()
+
+            # 🔹 Jeśli użytkownik kliknie "MENU" w show_end_screen(),
+            # pętla wróci automatycznie do początku (czyli do show_start_screen)
+
+        # 🔹 Zakończenie aplikacji
         if self.config.render:
             pygame.quit()

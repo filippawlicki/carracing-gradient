@@ -94,7 +94,7 @@ def run_play_vs_ai():
         human=True,
         save_path=model_path
     )
-    Game(config).run()
+    Game(config).start_game()
 
 
 def run_sb3_train():
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mode",
         choices=["train", "play_vs_ai", "train_sb3", "watch_custom", "ai_vs_ai"],
-        default="train",
+        default="play_vs_ai",
         help="Mode to run: train (custom PPO), play_vs_ai (human vs SB3), "
              "train_sb3 (train SB3 baseline), watch_custom (watch your agent), "
              "ai_vs_ai (SB3 vs custom PPO)"
