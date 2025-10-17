@@ -1,4 +1,4 @@
-# CarRacing
+# CarRacing - Human vs AI
 #### by Gradient Science Club
 
 ---
