@@ -12,7 +12,7 @@ class MiniMap:
     track: TrackMap
 
     def to_surface(self) -> pygame.Surface:
-        assert self.track.image is not None, "Najpierw wywołaj TrackMap.build_from_env()"
+        assert self.track.image is not None, "First call TrackMap.build_from_env()"
         return pygame.surfarray.make_surface(np.transpose(self.track.image, (1, 0, 2)))
 
     def draw_cars(self, screen: pygame.Surface, top_left: Tuple[int, int], cars_px: list[Tuple[int, int]]):

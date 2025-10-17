@@ -4,8 +4,6 @@ from typing import Optional, Tuple
 import gymnasium as gym
 import numpy as np
 
-from multi_car_racing.controllers.PPOController import PPOController
-
 @dataclass
 class EnvCar:
     env: gym.Env
