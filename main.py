@@ -1,91 +1,164 @@
 import argparse
-import gymnasium as gym
-from stable_baselines3 import PPO
-from stable_baselines3.common.env_util import make_vec_env
-import numpy as np
-import pygame
-from pygame.locals import *
-import torch
+import os
+from multi_car_racing.Game import Game
+from multi_car_racing.GameConfig import GameConfig
+from multi_car_racing.controllers.PPOController import PPOController
+from multi_car_racing.controllers.SB3Controller import SB3Controller
 
-MODEL_PATH = "ppo_carracing"
 
-class HumanController:
-    def __init__(self):
-        pygame.init()
-        self.action = np.array([0.0, 0.0, 0.0])  # [steer, gas, brake]
-        self.done = False
+def make_ppo_agent(training=False):
+    custom_config = {
+        "lr": 3e-4,
+        "gamma": 0.99,
+        "eps_clip": 0.2,
+        "k_epochs": 4,
+        "max_episodes": 100,
+        "value_coef": 0.5,
+        "entropy_coef": 0.01,
+        "max_grad_norm": 0.5,
+    }
+    agent = PPOController(
+        training=training,
+        save_path='trained/ppo_last.pt',
+        train_config=custom_config
+    )
+    if not training:
+        agent.load('trained/ppo_last.pt')
+    return agent
 
-    def get_action(self):
-        keys = pygame.key.get_pressed()
-        action = np.array([0.0, 0.0, 0.0])
 
-        if keys[K_LEFT] or keys[K_a]:
-            action[0] = -1.0
-        if keys[K_RIGHT] or keys[K_d]:
-            action[0] = 1.0
-        if keys[K_UP] or keys[K_w]:
-            action[1] = 1.0
-        if keys[K_DOWN] or keys[K_s]:
-            action[2] = 0.8  # brake
+def make_sb3_agent(training=False, model_path='trained/sb3_ppo.zip'):
+    agent = SB3Controller(
+        training=training,
+        save_path='trained/sb3_ppo.zip'
+    )
+    if not training:
+        try:
+            agent.load(model_path)
+        except FileNotFoundError:
+            print(f"Warning: Could not find {model_path}")
+            raise
+    return agent
 
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                self.done = True
-            if event.type == KEYDOWN and event.key == K_ESCAPE:
-                self.done = True
 
-        return action
+def run_train():
+    print("[Main] Starting custom PPO training...")
+    config = GameConfig(
+        number_of_cars=1,
+        user_agent_factory=lambda: make_ppo_agent(training=True),
+        user_agent_training=True,
+        render=False,
+        human=False,
+        save_path='trained/ppo_last.pt'
+    )
+    Game(config).run()
 
-def train():
-    env = make_vec_env("CarRacing-v3", n_envs=1)
-    device = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu"
-    model = PPO("CnnPolicy", env, verbose=1, device=device)
-    model.learn(total_timesteps=100_000)
-    model.save(MODEL_PATH)
-    env.close()
-    print("Model saved.")
 
-def play_against_ai():
-    env = gym.make("CarRacing-v3", render_mode="human")
-    model = PPO.load(MODEL_PATH)
-    human = HumanController()
+def run_play_vs_ai():
+    print("Starting Player vs AI mode...")
 
-    obs, _ = env.reset()
-    clock = pygame.time.Clock()
-    total_reward = 0
+    # Check what models are available
+    models = {
+        'sb3': 'trained/sb3_ppo.zip',
+        'custom': 'trained/ppo_last.pt'
+    }
 
-    while not human.done:
-        action_human = human.get_action()
+    available = {}
+    for name, path in models.items():
+        if os.path.exists(path):
+            available[name] = path
+            print(f"Found {name} model: {path}")
 
-        action_ai, _ = model.predict(obs)
+    if not available:
+        print("\nNo trained models found!")
+        print("Please train a model first:")
+        print("  - python main.py --mode train_sb3")
+        print("  - python main.py --mode train")
+        return
 
-        use_ai = True # Set to True to use AI, False to use human input
-        action = action_ai if use_ai else action_human
-
-        obs, reward, terminated, truncated, _ = env.step(action)
-        total_reward += reward
-        clock.tick(60)
-
-        if terminated or truncated:
-            print("Episode finished. Total reward:", round(total_reward, 2))
-            obs, _ = env.reset()
-            total_reward = 0
-
-    env.close()
-    pygame.quit()
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--train", action="store_true", help="Train the model")
-    parser.add_argument("--play", action="store_true", help="Play against AI")
-    args = parser.parse_args()
-
-    if args.train:
-        train()
-    elif args.play:
-        play_against_ai()
+    # Prefer SB3 if available, otherwise use custom
+    if 'sb3' in available:
+        model_path = available['sb3']
+        agent_factory = lambda: make_sb3_agent(training=False, model_path=model_path)
+        print(f"Using SB3 agent")
     else:
-        print("Use --train or --play")
+        model_path = available['custom']
+        agent_factory = lambda: make_ppo_agent(training=False)
+        print(f"Using custom PPO agent")
+
+    config = GameConfig(
+        number_of_cars=2,
+        user_agent_factory=agent_factory,
+        user_agent_training=False,
+        render=True,
+        human=True,
+        save_path=model_path
+    )
+    Game(config).start_game()
+
+
+def run_sb3_train():
+    print("Starting SB3 PPO training...")
+    from train_sb3 import train_sb3_baseline
+    train_sb3_baseline()
+
+
+def run_watch_custom():
+    print("Watching custom PPO agent...")
+    config = GameConfig(
+        number_of_cars=1,
+        user_agent_factory=lambda: make_ppo_agent(training=False),
+        user_agent_training=False,
+        render=True,
+        human=False,
+    )
+    Game(config).run()
+
+
+def run_ai_vs_ai():
+    print("Starting AI vs AI mode...")
+
+    def agent_factory():
+        if not hasattr(agent_factory, 'counter'):
+            agent_factory.counter = 0
+
+        if agent_factory.counter == 0:
+            agent = make_sb3_agent(training=False)
+        else:
+            agent = make_ppo_agent(training=False)
+
+        agent_factory.counter += 1
+        return agent
+
+    config = GameConfig(
+        number_of_cars=2,
+        user_agent_factory=agent_factory,
+        user_agent_training=False,
+        render=True,
+        human=False,
+    )
+    Game(config).run()
+
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Car Racing Multi-Agent System")
+    parser.add_argument(
+        "--mode",
+        choices=["train", "play_vs_ai", "train_sb3", "watch_custom", "ai_vs_ai"],
+        default="play_vs_ai",
+        help="Mode to run: train (custom PPO), play_vs_ai (human vs SB3), "
+             "train_sb3 (train SB3 baseline), watch_custom (watch your agent), "
+             "ai_vs_ai (SB3 vs custom PPO)"
+    )
+    args = parser.parse_args()
+
+    if args.mode == "train":
+        run_train()
+    elif args.mode == "play_vs_ai":
+        run_play_vs_ai()
+    elif args.mode == "train_sb3":
+        run_sb3_train()
+    elif args.mode == "watch_custom":
+        run_watch_custom()
+    elif args.mode == "ai_vs_ai":
+        run_ai_vs_ai()
