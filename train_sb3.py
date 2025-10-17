@@ -84,7 +84,6 @@ def train_sb3_baseline(total_timesteps=500_000, use_frame_stack=False):
     print(f"Starting training for {total_timesteps} timesteps...")
     print(f"Observation space: {env.observation_space}")
     print(f"Action space: {env.action_space}")
-    print(f"Key settings:")
 
     model.learn(
         total_timesteps=total_timesteps,
